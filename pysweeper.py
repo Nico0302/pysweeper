@@ -1,17 +1,28 @@
-from tkinter import Tk, Frame, Button, messagebox, DISABLED, NORMAL
+from tkinter import Tk, Frame, Button, font, messagebox, DISABLED, NORMAL
 from random import randint
 
 # gameplay constants
 FIELD_WIDTH = 14
 FIELD_HEIGHT = 16
-MINE_COUNT = int(FIELD_WIDTH*FIELD_HEIGHT * 0.15)
+MINE_COUNT = int(FIELD_WIDTH*FIELD_HEIGHT * 0.2)
 FLAG_COUNT = MINE_COUNT*2
 # graphic constats
 DEFAULT_FORGROUND = "black"
 FLAGGED_FORGROUND = "red"
-DEFAULT_BACKGROUND = "#F0F0F0"
-REVEALED_BACKGROUND = "lightgrey"
+DEFAULT_BACKGROUND = "SystemButtonFace"
+REVEALED_BACKGROUND = "#CACACA"
 MINE_BACKGROUND = "red"
+SCORE_FOREGROUND = [
+    None,
+    "blue",
+    "green",
+    "red",
+    "purple",
+    "black",
+    "maroon",
+    "gray",
+    "turquoise"
+]
 
 class Box:
     def __init__(self, master, row, column):
@@ -54,7 +65,7 @@ class Box:
         """Make box appear revealed."""
         self.button.config(state=DISABLED, background=REVEALED_BACKGROUND)
         if self.score > 0:
-            self.button.config(text=str(self.score))
+            self.button.config(text=str(self.score), disabledforeground=SCORE_FOREGROUND[self.score])
         self.revealed = True
 
     def cover(self):
