@@ -1,150 +1,205 @@
-from tkinter import Tk, Button, font, DISABLED
+from tkinter import Tk, Frame, Button, messagebox, DISABLED, NORMAL
 from random import randint
 
-# global constants
-MINE_COUNT = 200
-MINE_PERCENTAGE = 0.2
-FLAG_COUNT = 40
-FIELD_WIDTH = 50
-FIELD_HEIGHT = 30
-BOX_SIZE = 10
+# gameplay constants
+FIELD_WIDTH = 14
+FIELD_HEIGHT = 16
+MINE_COUNT = int(FIELD_WIDTH*FIELD_HEIGHT * 0.15)
+FLAG_COUNT = MINE_COUNT*2
+# graphic constats
+DEFAULT_FORGROUND = "black"
+FLAGGED_FORGROUND = "red"
+DEFAULT_BACKGROUND = "#F0F0F0"
+REVEALED_BACKGROUND = "lightgrey"
+MINE_BACKGROUND = "red"
 
 class Box:
     def __init__(self, master, row, column):
         self.master = master
         self.row = row
         self.column = column
+        self.button = Button(master=master, text="", width=2, height=1, foreground=DEFAULT_FORGROUND, disabledforeground=DEFAULT_FORGROUND, command=self.on_press)
+        self.button.grid(row=row, column=column)
+        self.button.bind("<Button-3>", self.on_toggle_flag)
+
+    def init_round(self):
+        """Initialize box for new game round."""
         self.flagged = False
         self.revealed = False
-        self.score = gamemanager.get_score(row, column)
-        self.button = Button(master=master, text="", width=2, height=1, command=self.on_press)
-        self.button.grid(row=row, column=column)
-        self.button.bind("<Button-3>", self.toggle_flag)
+        self.mine = False
+        self.score = 0
+        self.cover()
 
     def on_press(self):
-        """button press callback"""
+        """Callback for button press."""
         if self.flagged:
             self.unflag()
         else:
-            self.button.config(state=DISABLED, background="lightgrey")
-            if self.score == -1:
-                self.button.config(text="X", background="red", fg="black")
-            if self.score > 0:
-                self.button.config(text=str(self.score))
-            self.revealed = True
+            if self.mine:
+                gamemanager.loose_round()
+            else:
+                if not gamemanager.mined:
+                    gamemanager.generate_mines(self.row, self.column)
+                gamemanager.reveal_box(self)
 
-    def toggle_flag(self, _):
-        """toggles flag"""
+    def on_toggle_flag(self, _):
+        """Callback for toggle flag."""
         if not self.revealed:
             if self.flagged:
-                self.unflag()
+                gamemanager.unflag(self)
             else:
-                self.flag()
+                gamemanager.flag(self)
+
+    def reveal(self):
+        """Make box appear revealed."""
+        self.button.config(state=DISABLED, background=REVEALED_BACKGROUND)
+        if self.score > 0:
+            self.button.config(text=str(self.score))
+        self.revealed = True
+
+    def cover(self):
+        """Make box appear covered."""
+        self.button.config(state=NORMAL, foreground=DEFAULT_FORGROUND, background=DEFAULT_BACKGROUND, text="")
+
+    def detonate(self):
+        """Make box appear detonated."""
+        self.button.config(state=DISABLED, text="X", background=MINE_BACKGROUND)
+        self.revealed = True
 
     def flag(self):
-        """places flag"""
-        self.button.config(text="P")
+        """Place flag."""
+        self.button.config(text="P", foreground=FLAGGED_FORGROUND)
         self.flagged = True
 
     def unflag(self):
-        """removes flag"""
-        self.button.config(text="")
+        """Remove flag."""
+        self.button.config(text="", foreground=DEFAULT_FORGROUND)
         self.flagged = False
 
-class Mine:
-    def __init__(self, row, column):
-        self.row = row
-        self.column = column
-        self.falgged = False
+    def place_mine(self):
+        """Place mine on box."""
+        self.mine = True
 
-    def flag(self):
-        """falggs mine"""
-        self.falgged = True
-
-    def unflag(self):
-        """unflaggs mine"""
-        self.falgged = False
-
-    def detonate(self):
-        """detonates mine"""
-        print("Game Over")
+    def increment_score(self):
+        """Increment mine score."""
+        self.score += 1
 
 class Gamemanager:
-    BOX_SOUROUNDING_SHIFT = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)] # shift in rows and columns for sourrounding boxes
+    # shift in rows and columns for sourrounding boxes
+    BOX_SOUROUNDING_SHIFT = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
 
     def __init__(self):
-        self.mines = []
+        self.field = []
+        self.mined = False
+        self.flags = 0
+        self.flagged = 0
 
-    def init_game(self):
-        """initializes game"""
-        self.field = [0] * (FIELD_WIDTH*FIELD_HEIGHT)
-        self.generate_mines()
-        self.generate_scores()
+    def create_field(self, master):
+        """Create the game field."""
+        self.field = [[Box(master, row, column) for column in range(FIELD_WIDTH)] for row in range(FIELD_HEIGHT)]
 
-    def generate_mines(self):
-        """generats random mines in field"""
+    def init_round(self):
+        """Initialize new game round."""
+        self.mined = False
+        self.flags = 0
+        self.flagged = 0
+        for row in self.field:
+            for box in row:
+                box.init_round()
+    
+    def win_round(self):
+        """Player won round procedure."""
+        messagebox.showinfo("GAME OVER", "Du hast gewonnen!!!")
+        self.init_round()
+
+    def loose_round(self):
+        """Player lost round procedure."""
+        for row in self.field:
+            for box in row:
+                if box.mine:
+                    box.detonate()
+        messagebox.showinfo("GAME OVER", "Du hast verloren!!!")
+        self.init_round()
+
+    def reveal_box(self, box):
+        """Reveal empty sourrounding boxes by flood fill."""
+        if not box.revealed:
+            box.reveal()
+            if box.score == 0:
+                # keep in bounds
+                if box.row < FIELD_HEIGHT-1:
+                    self.reveal_box(self.field[box.row+1][box.column])
+                if box.row > 0:
+                    self.reveal_box(self.field[box.row-1][box.column])
+                if box.column < FIELD_WIDTH-1:
+                    self.reveal_box(self.field[box.row][box.column+1])
+                if box.column > 0:
+                    self.reveal_box(self.field[box.row][box.column-1])
+
+    def generate_mines(self, excluded_row, excluded_column):
+        """Generat random mines in mine field with excluded box."""
         for _ in range(MINE_COUNT):
-            self.add_mine()
+            self.place_random_mine(excluded_row, excluded_column)
+        self.mined = True
 
-    def generate_scores(self):
-        """generats scores base on mines in field"""
-        for index, value in enumerate(self.field):
-            if value == 0:
-                row = index//FIELD_WIDTH
-                column = index%FIELD_WIDTH
-                self.field[index] = self.calculate_box_score(row, column)
-
-    def calculate_box_score(self, row, column):
-        """returns the number of surrounding mines"""
-        score = 0
+    def increment_box_score(self, row, column):
+        """Increment box mine score for sourunding boxes."""
         for shift in self.BOX_SOUROUNDING_SHIFT:
             shifted_row = row+shift[0]
             shifted_column = column+shift[1]
+            try:
+                self.field[shifted_row][shifted_column].increment_score()
+            except IndexError:
+                # ignore out of range error
+                pass
 
-            # prevent overflow and underflow
-            if shifted_row < FIELD_HEIGHT and shifted_column < FIELD_WIDTH and \
-               shifted_row >= 0 and shifted_column >= 0 and \
-               self.check_for_mine(shifted_row, shifted_column):
-                score += 1
-        return score
-                
-    def check_for_mine(self, row, column):
-        """check if box contains mine"""
-        return self.get_score(row, column) < 0
-
-    def add_mine(self):
-        """adds mine at random position in field"""
-        index = randint(0, FIELD_WIDTH*FIELD_HEIGHT-1)
-        # check if mine exists
-        if self.field[index] >= 0:
-            self.field[index] = -1
+    def place_random_mine(self, excluded_row, excluded_column):
+        """Place random mine on field with excluded box."""
+        row = randint(0, FIELD_HEIGHT-1)
+        column = randint(0, FIELD_WIDTH-1)
+        # prevent mine in radius from first press
+        if row <= excluded_row+1 and row >= excluded_row-1 and \
+           column <= excluded_column+1 and column >= excluded_column-1 or \
+           self.field[row][column].mine:
+            self.place_random_mine(excluded_row, excluded_column)
         else:
-            self.add_mine()
+            self.field[row][column].place_mine()
+            self.increment_box_score(row, column)
 
-    def get_score(self, row, column):
-        """returns box by row and column"""
-        return self.field[column + row*FIELD_WIDTH]
+    def flag(self, box):
+        """Flag box."""
+        if self.flags < FLAG_COUNT:
+            box.flag()
+            self.flags += 1
+            if box.mine:
+                self.flagged += 1
+            if self.flagged >= MINE_COUNT:
+                self.win_round()
+
+    def unflag(self, box):
+        """Unflag box."""
+        box.unflag()
+        self.flags -= 1
+        if box.mine:
+            self.flagged -= 1     
 
 class Application:
     def __init__(self, root):
         self.root = root
-        self.boxes = []
-        gamemanager.init_game()
-        self.build_field(root)
-
-    def build_field(self, master):
-        """builds field boxes"""
-        self.boxes = [] # clear list
-        for row in range(FIELD_HEIGHT):
-            for column in range(FIELD_WIDTH):
-                box = Box(master, row, column)
-                self.boxes.append(box)
+        root.title("pysweeper")
+        # tkinter frames
+        menuframe = Frame(master=root)
+        menuframe.pack()
+        fieldframe = Frame(master=root)
+        fieldframe.pack()
+        resetbutton = Button(master=menuframe, text="Neustart", command=gamemanager.init_round)
+        resetbutton.pack()
+        # gamemanager
+        gamemanager.create_field(fieldframe)
+        gamemanager.init_round()
 
 root = Tk()
 gamemanager = Gamemanager()
-
-# Create tkInter dependent global constants
-SYMBOL_FONT = font.Font(family='Wingdings', size=16)
 
 Application(root)
 
