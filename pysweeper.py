@@ -2,9 +2,9 @@ from tkinter import Tk, Frame, Button, font, messagebox, DISABLED, NORMAL
 from random import randint
 
 # gameplay constants
-FIELD_WIDTH = 14
-FIELD_HEIGHT = 16
-MINE_COUNT = int(FIELD_WIDTH*FIELD_HEIGHT * 0.2)
+FIELD_WIDTH = 10
+FIELD_HEIGHT = 12
+MINE_COUNT = int(FIELD_WIDTH*FIELD_HEIGHT * 0.15)
 FLAG_COUNT = MINE_COUNT*2
 # graphic constats
 DEFAULT_FORGROUND = "black"
@@ -63,14 +63,16 @@ class Box:
 
     def reveal(self):
         """Make box appear revealed."""
-        self.button.config(state=DISABLED, background=REVEALED_BACKGROUND)
+        text = ""
         if self.score > 0:
-            self.button.config(text=str(self.score), disabledforeground=SCORE_FOREGROUND[self.score])
+            text = str(self.score)
+        self.button.config(state=DISABLED, background=REVEALED_BACKGROUND, text=text, disabledforeground=SCORE_FOREGROUND[self.score])
         self.revealed = True
+        self.flagged = False
 
     def cover(self):
         """Make box appear covered."""
-        self.button.config(state=NORMAL, foreground=DEFAULT_FORGROUND, background=DEFAULT_BACKGROUND, text="")
+        self.button.config(state=NORMAL, foreground=DEFAULT_FORGROUND, disabledforeground=DEFAULT_FORGROUND, background=DEFAULT_BACKGROUND, text="")
 
     def detonate(self):
         """Make box appear detonated."""
@@ -136,6 +138,8 @@ class Gamemanager:
         """Reveal empty sourrounding boxes by flood fill."""
         if not box.revealed:
             box.reveal()
+            if box.flagged:
+                self.flags -= 1
             if box.score == 0:
                 # keep in bounds
                 if box.row < FIELD_HEIGHT-1:
