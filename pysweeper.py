@@ -44,7 +44,7 @@ class Box:
     def on_press(self):
         """Callback for button press."""
         if self.flagged:
-            self.unflag()
+            gamemanager.unflag(self)
         else:
             if self.mine:
                 gamemanager.loose_round()
@@ -188,6 +188,8 @@ class Gamemanager:
                 self.flagged += 1
             if self.flagged >= MINE_COUNT:
                 self.win_round()
+            if self.flags >= FLAG_COUNT:
+                self.loose_round()
 
     def unflag(self, box):
         """Unflag box."""
