@@ -2,10 +2,10 @@ from tkinter import Tk, Frame, Button, font, messagebox, DISABLED, NORMAL
 from random import randint
 
 # gameplay constants
-FIELD_WIDTH = 10
+FIELD_WIDTH = 15
 FIELD_HEIGHT = 12
 MINE_COUNT = int(FIELD_WIDTH*FIELD_HEIGHT * 0.15)
-FLAG_COUNT = MINE_COUNT*2
+FLAG_COUNT = MINE_COUNT
 # graphic constats
 DEFAULT_FORGROUND = "black"
 FLAGGED_FORGROUND = "red"
@@ -134,6 +134,19 @@ class Gamemanager:
         messagebox.showinfo("GAME OVER", "Du hast verloren!!!")
         self.init_round()
 
+    def for_sourrounding(self, row, column, command):
+        """Execute a function for sourrounding boxes."""
+        for shift in self.BOX_SOUROUNDING_SHIFT:
+            shifted_row = row+shift[0]
+            shifted_column = column+shift[1]
+            try:
+                if shifted_row < 0 or shifted_column < 0:
+                    raise IndexError
+                command(self.field[shifted_row][shifted_column])
+            except IndexError:
+                # ignore out of range error
+                pass
+
     def reveal_box(self, box):
         """Reveal empty sourrounding boxes by flood fill."""
         if not box.revealed:
@@ -141,15 +154,7 @@ class Gamemanager:
             if box.flagged:
                 self.flags -= 1
             if box.score == 0:
-                # keep in bounds
-                if box.row < FIELD_HEIGHT-1:
-                    self.reveal_box(self.field[box.row+1][box.column])
-                if box.row > 0:
-                    self.reveal_box(self.field[box.row-1][box.column])
-                if box.column < FIELD_WIDTH-1:
-                    self.reveal_box(self.field[box.row][box.column+1])
-                if box.column > 0:
-                    self.reveal_box(self.field[box.row][box.column-1])
+                self.for_sourrounding(box.row, box.column, lambda neighbor: self.reveal_box(neighbor))
 
     def generate_mines(self, excluded_row, excluded_column):
         """Generat random mines in mine field with excluded box."""
@@ -159,14 +164,7 @@ class Gamemanager:
 
     def increment_box_score(self, row, column):
         """Increment box mine score for sourunding boxes."""
-        for shift in self.BOX_SOUROUNDING_SHIFT:
-            shifted_row = row+shift[0]
-            shifted_column = column+shift[1]
-            try:
-                self.field[shifted_row][shifted_column].increment_score()
-            except IndexError:
-                # ignore out of range error
-                pass
+        self.for_sourrounding(row, column, lambda neighbor: neighbor.increment_score())
 
     def place_random_mine(self, excluded_row, excluded_column):
         """Place random mine on field with excluded box."""
