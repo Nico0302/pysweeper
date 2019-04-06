@@ -1,4 +1,4 @@
-from tkinter import Tk, Frame, Button, font, messagebox, DISABLED, NORMAL
+from tkinter import Tk, Frame, Label, Button, messagebox, DISABLED, NORMAL, LEFT, RIGHT
 from random import randint
 
 # gameplay constants
@@ -107,8 +107,9 @@ class Gamemanager:
         self.flags = 0
         self.flagged = 0
 
-    def create_field(self, master):
+    def create_field(self, master, update_flaglabel):
         """Create the game field."""
+        self.update_flaglabel = lambda: update_flaglabel(FLAG_COUNT-self.flags)
         self.field = [[Box(master, row, column) for column in range(FIELD_WIDTH)] for row in range(FIELD_HEIGHT)]
 
     def init_round(self):
@@ -119,6 +120,7 @@ class Gamemanager:
         for row in self.field:
             for box in row:
                 box.init_round()
+        self.update_flaglabel()
     
     def win_round(self):
         """Player won round procedure."""
@@ -131,7 +133,7 @@ class Gamemanager:
             for box in row:
                 if box.mine:
                     box.detonate()
-        messagebox.showinfo("GAME OVER", "Du hast verloren!!!")
+        messagebox.showerror("GAME OVER", "Du hast verloren!!!")
         self.init_round()
 
     def for_sourrounding(self, row, column, command):
@@ -150,9 +152,10 @@ class Gamemanager:
     def reveal_box(self, box):
         """Reveal empty sourrounding boxes by flood fill."""
         if not box.revealed:
-            box.reveal()
             if box.flagged:
                 self.flags -= 1
+                self.update_flaglabel()
+            box.reveal()
             if box.score == 0:
                 self.for_sourrounding(box.row, box.column, lambda neighbor: self.reveal_box(neighbor))
 
@@ -184,6 +187,7 @@ class Gamemanager:
         if self.flags < FLAG_COUNT:
             box.flag()
             self.flags += 1
+            self.update_flaglabel()
             if box.mine:
                 self.flagged += 1
             if self.flagged >= MINE_COUNT:
@@ -196,7 +200,8 @@ class Gamemanager:
         box.unflag()
         self.flags -= 1
         if box.mine:
-            self.flagged -= 1     
+            self.flagged -= 1
+        self.update_flaglabel()
 
 class Application:
     def __init__(self, root):
@@ -207,11 +212,19 @@ class Application:
         menuframe.pack()
         fieldframe = Frame(master=root)
         fieldframe.pack()
+        flagicon = Label(master=menuframe, text="P", foreground=FLAGGED_FORGROUND, font=("Wingdings", "15"))
+        flagicon.pack(side=LEFT)
+        self.flaglabel = Label(master=menuframe, text=str(FLAG_COUNT))
+        self.flaglabel.pack(side=LEFT)
         resetbutton = Button(master=menuframe, text="Neustart", command=gamemanager.init_round)
-        resetbutton.pack()
+        resetbutton.pack(side=RIGHT, padx=32, pady=4)
         # gamemanager
-        gamemanager.create_field(fieldframe)
+        gamemanager.create_field(fieldframe, self.update_flaglabel)
         gamemanager.init_round()
+
+    def update_flaglabel(self, count):
+        """Update flag label."""
+        self.flaglabel.config(text=str(count))
 
 root = Tk()
 gamemanager = Gamemanager()
