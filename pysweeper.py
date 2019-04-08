@@ -7,6 +7,7 @@ FIELD_HEIGHT = 12
 MINE_COUNT = int(FIELD_WIDTH*FIELD_HEIGHT * 0.15)
 FLAG_COUNT = MINE_COUNT
 # graphic constats
+SYMBOL_FONT = ("Wingdings", "15")
 DEFAULT_FORGROUND = "black"
 FLAGGED_FORGROUND = "red"
 DEFAULT_BACKGROUND = "SystemButtonFace"
@@ -106,17 +107,24 @@ class Gamemanager:
         self.mined = False
         self.flags = 0
         self.flagged = 0
+        self.time = 0
 
-    def create_field(self, master, update_flaglabel):
+    def create_field(self, master, update_flaglabel, start_timer, stop_timer, reset_timer):
         """Create the game field."""
         self.update_flaglabel = lambda: update_flaglabel(FLAG_COUNT-self.flags)
+        self.start_timer = start_timer
+        self.stop_timer = stop_timer
+        self.reset_timer = reset_timer
         self.field = [[Box(master, row, column) for column in range(FIELD_WIDTH)] for row in range(FIELD_HEIGHT)]
 
     def init_round(self):
         """Initialize new game round."""
+        self.stop_timer()
+        self.reset_timer()
         self.mined = False
         self.flags = 0
         self.flagged = 0
+        self.time = 0
         for row in self.field:
             for box in row:
                 box.init_round()
@@ -124,11 +132,13 @@ class Gamemanager:
     
     def win_round(self):
         """Player won round procedure."""
+        self.stop_timer()
         messagebox.showinfo("GAME OVER", "Du hast gewonnen!!!")
         self.init_round()
 
     def loose_round(self):
         """Player lost round procedure."""
+        self.stop_timer()
         for row in self.field:
             for box in row:
                 if box.mine:
@@ -164,6 +174,7 @@ class Gamemanager:
         for _ in range(MINE_COUNT):
             self.place_random_mine(excluded_row, excluded_column)
         self.mined = True
+        self.start_timer()
 
     def increment_box_score(self, row, column):
         """Increment box mine score for sourunding boxes."""
@@ -203,28 +214,56 @@ class Gamemanager:
             self.flagged -= 1
         self.update_flaglabel()
 
+    def increment_time(self):
+        """Increment time with one second."""
+        self.time += 1
+
 class Application:
     def __init__(self, root):
         self.root = root
         root.title("pysweeper")
+        self.timerrunning = False
         # tkinter frames
         menuframe = Frame(master=root)
         menuframe.pack()
         fieldframe = Frame(master=root)
         fieldframe.pack()
-        flagicon = Label(master=menuframe, text="P", foreground=FLAGGED_FORGROUND, font=("Wingdings", "15"))
+        flagicon = Label(master=menuframe, text="P", foreground=FLAGGED_FORGROUND, font=SYMBOL_FONT)
         flagicon.pack(side=LEFT)
         self.flaglabel = Label(master=menuframe, text=str(FLAG_COUNT))
         self.flaglabel.pack(side=LEFT)
         resetbutton = Button(master=menuframe, text="Neustart", command=gamemanager.init_round)
-        resetbutton.pack(side=RIGHT, padx=32, pady=4)
+        resetbutton.pack(side=LEFT, padx=32, pady=4)
+        self.timerlabel = Label(master=menuframe, text="00:00")
+        self.timerlabel.pack(side=LEFT)
         # gamemanager
-        gamemanager.create_field(fieldframe, self.update_flaglabel)
+        gamemanager.create_field(fieldframe, self.update_flaglabel, self.start_timer, self.stop_timer, self.reset_timer)
         gamemanager.init_round()
 
     def update_flaglabel(self, count):
         """Update flag label."""
         self.flaglabel.config(text=str(count))
+
+    def start_timer(self):
+        """Start Timer"""
+        self.timerrunning = True
+        self.tick_timer()
+
+    def reset_timer(self):
+        """Reset timer label."""
+        self.timerlabel.config(text="00:00")
+
+    def stop_timer(self):
+        """Stop timer and update label."""
+        self.timerrunning = False
+
+    def tick_timer(self):
+        """Run timer in second interval."""
+        if self.timerrunning:
+            gamemanager.increment_time()
+            m, s = divmod(gamemanager.time, 60)
+            self.timerlabel.config(text="{:02d}:{:02d}".format(m, s))
+            self.root.after(1000, self.tick_timer)
 
 root = Tk()
 gamemanager = Gamemanager()
