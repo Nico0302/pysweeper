@@ -2,9 +2,9 @@ from tkinter import Tk, Frame, Label, Button, messagebox, DISABLED, NORMAL, LEFT
 from random import randint
 
 # gameplay constants
-FIELD_WIDTH = 15
-FIELD_HEIGHT = 12
-MINE_COUNT = int(FIELD_WIDTH*FIELD_HEIGHT * 0.15)
+FIELD_WIDTH = 16
+FIELD_HEIGHT = 16
+MINE_COUNT = 40
 FLAG_COUNT = MINE_COUNT
 # graphic constats
 SYMBOL_FONT = ("Wingdings", "15")
@@ -222,6 +222,7 @@ class Application:
     def __init__(self, root):
         self.root = root
         root.title("pysweeper")
+        root.iconbitmap("icon.ico")
         self.timerrunning = False
         # tkinter frames
         menuframe = Frame(master=root)
