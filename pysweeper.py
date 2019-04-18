@@ -218,8 +218,6 @@ class Gamemanager:
                 self.flagged += 1
             if self.flagged >= self.minecount:
                 self.win_round()
-            if self.placedflags >= self.minecount:
-                self.loose_round()
 
     def unflag(self, box):
         """Unflag box."""
