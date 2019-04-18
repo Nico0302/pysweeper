@@ -1,11 +1,14 @@
-from tkinter import Tk, Frame, Label, Button, messagebox, DISABLED, NORMAL, LEFT, RIGHT
+from tkinter import Tk, Frame, Label, Button, OptionMenu, messagebox, StringVar, DISABLED, NORMAL, LEFT, RIGHT
 from random import randint
 
 # gameplay constants
-FIELD_WIDTH = 16
-FIELD_HEIGHT = 16
-MINE_COUNT = 40
-FLAG_COUNT = MINE_COUNT
+GAME_MODES = {
+    # name: (width, height, mines)
+    "beginner": (9, 9, 10),
+    "intermediate": (16, 16, 40),
+    "expert": (30, 16, 99)
+}
+DEFAULT_MODE = "beginner"
 # graphic constats
 SYMBOL_FONT = ("Wingdings", "15")
 DEFAULT_FORGROUND = "black"
@@ -104,25 +107,37 @@ class Gamemanager:
 
     def __init__(self):
         self.field = []
+        self.width = 0
+        self.height = 0
+        self.minecount = 0
         self.mined = False
-        self.flags = 0
+        self.placedflags = 0
         self.flagged = 0
         self.time = 0
 
-    def create_field(self, master, update_flaglabel, start_timer, stop_timer, reset_timer):
-        """Create the game field."""
-        self.update_flaglabel = lambda: update_flaglabel(FLAG_COUNT-self.flags)
+    def bind(self, update_flaglabel, start_timer, stop_timer, reset_timer):
+        """Bind callbacks to Gammanager."""
+        self.update_flaglabel = lambda: update_flaglabel(self.minecount-self.placedflags)
         self.start_timer = start_timer
         self.stop_timer = stop_timer
         self.reset_timer = reset_timer
-        self.field = [[Box(master, row, column) for column in range(FIELD_WIDTH)] for row in range(FIELD_HEIGHT)]
+
+    def create_field(self, master, gamemode):
+        """Create the game field."""
+        self.width, self.height, self.minecount = GAME_MODES[gamemode]
+        self.field = [[Box(master, row, column) for column in range(self.width)] for row in range(self.height)]
+
+    def delete_field(self):
+        for row in self.field:
+            for box in row:
+                del box
 
     def init_round(self):
         """Initialize new game round."""
         self.stop_timer()
         self.reset_timer()
         self.mined = False
-        self.flags = 0
+        self.placedflags = 0
         self.flagged = 0
         self.time = 0
         for row in self.field:
@@ -163,7 +178,7 @@ class Gamemanager:
         """Reveal empty sourrounding boxes by flood fill."""
         if not box.revealed:
             if box.flagged:
-                self.flags -= 1
+                self.placedflags -= 1
                 self.update_flaglabel()
             box.reveal()
             if box.score == 0:
@@ -171,7 +186,7 @@ class Gamemanager:
 
     def generate_mines(self, excluded_row, excluded_column):
         """Generat random mines in mine field with excluded box."""
-        for _ in range(MINE_COUNT):
+        for _ in range(self.minecount):
             self.place_random_mine(excluded_row, excluded_column)
         self.mined = True
         self.start_timer()
@@ -182,8 +197,8 @@ class Gamemanager:
 
     def place_random_mine(self, excluded_row, excluded_column):
         """Place random mine on field with excluded box."""
-        row = randint(0, FIELD_HEIGHT-1)
-        column = randint(0, FIELD_WIDTH-1)
+        row = randint(0, self.height-1)
+        column = randint(0, self.width-1)
         # prevent mine in radius from first press
         if row <= excluded_row+1 and row >= excluded_row-1 and \
            column <= excluded_column+1 and column >= excluded_column-1 or \
@@ -195,21 +210,21 @@ class Gamemanager:
 
     def flag(self, box):
         """Flag box."""
-        if self.flags < FLAG_COUNT:
+        if self.placedflags < self.minecount:
             box.flag()
-            self.flags += 1
+            self.placedflags += 1
             self.update_flaglabel()
             if box.mine:
                 self.flagged += 1
-            if self.flagged >= MINE_COUNT:
+            if self.flagged >= self.minecount:
                 self.win_round()
-            if self.flags >= FLAG_COUNT:
+            if self.placedflags >= self.minecount:
                 self.loose_round()
 
     def unflag(self, box):
         """Unflag box."""
         box.unflag()
-        self.flags -= 1
+        self.placedflags -= 1
         if box.mine:
             self.flagged -= 1
         self.update_flaglabel()
@@ -227,18 +242,31 @@ class Application:
         # tkinter frames
         menuframe = Frame(master=root)
         menuframe.pack()
-        fieldframe = Frame(master=root)
-        fieldframe.pack()
+        self.fieldframe = Frame(master=root)
+        self.fieldframe.pack()
+        # menue
         flagicon = Label(master=menuframe, text="P", foreground=FLAGGED_FORGROUND, font=SYMBOL_FONT)
         flagicon.pack(side=LEFT)
-        self.flaglabel = Label(master=menuframe, text=str(FLAG_COUNT))
+        self.flaglabel = Label(master=menuframe, text=str(gamemanager.minecount))
         self.flaglabel.pack(side=LEFT)
-        resetbutton = Button(master=menuframe, text="Neustart", command=gamemanager.init_round)
-        resetbutton.pack(side=LEFT, padx=32, pady=4)
+        self.gamemode = StringVar(root)
+        self.gamemode.set(DEFAULT_MODE)
+        self.gamemode.trace('w', self.update_gamemode)
+        self.modemenu = OptionMenu(menuframe, self.gamemode, *GAME_MODES.keys())
+        self.modemenu.pack(side=LEFT, padx=10, pady=2)
         self.timerlabel = Label(master=menuframe, text="00:00")
         self.timerlabel.pack(side=LEFT)
         # gamemanager
-        gamemanager.create_field(fieldframe, self.update_flaglabel, self.start_timer, self.stop_timer, self.reset_timer)
+        gamemanager.bind(self.update_flaglabel, self.start_timer, self.stop_timer, self.reset_timer)
+        gamemanager.create_field(self.fieldframe, DEFAULT_MODE)
+        gamemanager.init_round()
+
+    def update_gamemode(self, *event):
+        """Update gamemode and recreate field"""
+        gamemode = self.gamemode.get()
+        for child in self.fieldframe.winfo_children():
+            child.destroy()
+        gamemanager.create_field(self.fieldframe, gamemode)
         gamemanager.init_round()
 
     def update_flaglabel(self, count):
