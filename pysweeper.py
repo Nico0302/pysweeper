@@ -1,5 +1,6 @@
 from tkinter import Tk, Frame, Label, Button, OptionMenu, messagebox, StringVar, DISABLED, NORMAL, LEFT, RIGHT
 from random import randint
+import sys
 
 # gameplay constants
 GAME_MODES = {
@@ -126,6 +127,7 @@ class Gamemanager:
         """Create the game field."""
         self.width, self.height, self.minecount = GAME_MODES[gamemode]
         self.field = [[Box(master, row, column) for column in range(self.width)] for row in range(self.height)]
+        sys.setrecursionlimit(self.width * self.height * 3)
 
     def delete_field(self):
         for row in self.field:
